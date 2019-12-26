@@ -5,3 +5,4 @@ bin/*
 *.make
 make.*
 Makefile
+*.vim

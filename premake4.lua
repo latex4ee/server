@@ -13,12 +13,12 @@ solution "TeX_Server"
 
 	project "Server"
 		kind "ConsoleApp"
-		language "C++"
-		files { "src/**.h", "src/**.cpp" }
-		includedirs { "./include" , "./include/spdlog"}
-		libdirs { "./lib" }
-		--links { "libspdlog" }
-		buildoptions {"--std=c++17"}
+		language "C"
+		files { "src/**.h", "src/**.c" }
+		includedirs { "./include" , "/usr/include" }
+		libdirs { "./lib" , "/usr/lib"}
+		links { "microhttpd" }
+		buildoptions {"--std=c11", "-Wall"}
 
 		configuration "debug"
 			defines { "DEBUG" }
