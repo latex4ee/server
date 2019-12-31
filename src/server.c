@@ -53,6 +53,9 @@ const file_sig_mimet_t FILE_SIGS[] = {
 typedef struct conn_info {
 	int conn_type;
 	char* ans_str;
+	FILE * file;
+	int    status_code;
+	char * status_str;
 	struct MHD_PostProcessor* post_processor;
 } conn_info_t;
 
@@ -65,11 +68,44 @@ const char* err_405_fmt =
 	"<html><body>The method [%s] isn't allowed!</body></html>";
 const char* gen_500_str = 
 	"<html><body>An internal server error has occurred!</body></html>";
+static const char * busy_str =
+	"<html><body>This server is busy, please try again later.</body></html>";
+static const char * file_complete_str =
+	"<html><body>The upload has been completed.</body></html>";
+static const char * file_exists_str =
+	"<html><body>That file already exists on this server.</body></html>";
+static const char * ask_file_fmt =
+"<html>\
+<body>\
+	Upload a file please. It will be carefully stored.<br/>\
+	There are %u clients uploading at the moment.<br/>\
+	<form action=\"filepost\" method=\"post\" enctype=\"multipart/form-data\">\
+		<input name=\"file\" type=\"file\"\>\
+		<input type=\"submit\" value=\" Send \"/>\
+	</form>\
+</body>\
+</html>";
+static const size_t MAXCLIENTS = 2;
+static const size_t MAXNAMESIZE = 20;
+static const size_t MAXANSWERSIZE = 200;
+static const size_t POSTBUFFERSIZE = 1024;
 
-const size_t MAXNAMESIZE = 20;
-const size_t MAXANSWERSIZE = 200;
-const size_t POSTBUFFERSIZE = 1024;
+static unsigned int n_clients_uploading = 0;
 
+static int send_page (
+		struct MHD_Connection* connection, const char * page, int status_code)
+{
+	int ret;
+	struct MHD_Response* response = 
+		MHD_create_response_from_buffer( 
+				strlen(page), (void*) page, MHD_RESPMEM_MUST_COPY);
+	if (!response) return MHD_NO;
+	MHD_add_response_header (response, 
+			MHD_HTTP_HEADER_CONTENT_TYPE, MIMETYPE_STR[MIMETYPE_HTML]);
+	ret = MHD_queue_response(connection, status_code, response);
+	MHD_destroy_response(response);
+	return ret;
+}
 int print_out_key(void *cls, enum MHD_ValueKind kind, const char *key, const char *value)
 {
 	printf("%s: %s\n", key, value);
@@ -162,22 +198,40 @@ static int iterate_post(
 		const char* filename, const char* content_type,
 		const char* transfer_encoding, const char* data, uint64_t off, size_t size)
 {
+	FILE * fp;
 	conn_info_t* con_info = con_info_cls;
-	if (0 == strcmp(key, "name"))
+	// Default to reporting internal server error
+	con_info->status_str  = gen_500_str;
+	con_info->status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+	if (0 == strcmp(key, "file"))
 	{
-		if((size > 0)&&(size <= MAXNAMESIZE))
+		if(NULL == con_info->file || 0 == con_info->file)
 		{
-			char * ans_str = malloc(MAXANSWERSIZE);
-			if(!ans_str) return MHD_NO;
-
-			snprintf(ans_str, MAXANSWERSIZE, greeting_page_fmt, data);
-			con_info->ans_str = ans_str;
+			if (NULL != (fp = fopen(filename, "rb")))
+			{
+				fclose(fp);
+				con_info->status_str = file_exists_str;
+				con_info->status_code = MHD_HTTP_FORBIDDEN;
+				return MHD_NO;
+			}
+			con_info->file = fopen(filename, "ab");
+			if (!con_info->file) return MHD_NO;
 		}
-		else
-			con_info->ans_str = NULL;
+		if (size > 0)
+		{
+			if(!fwrite(data, size, sizeof(char), con_info->file))
+				return MHD_NO;
+		}
+		con_info->status_str = file_complete_str;
+		con_info->status_code = MHD_HTTP_OK;
+
+		return MHD_YES;
+	}
+	else // Unrecognised key
+	{
+		syslog(LOG_WARNING, "Unrecognised POST key %s send", key);
 		return MHD_NO;
 	}
-	return MHD_YES;
 }
 
 void request_completed( void* cls, struct MHD_Connection* connection, void **con_cls,
@@ -188,8 +242,13 @@ void request_completed( void* cls, struct MHD_Connection* connection, void **con
 	if(NULL == con_info) return;
 	if(con_info->conn_type == HTTP_POST)
 	{
-		MHD_destroy_post_processor(con_info->post_processor);
+		if(NULL != con_info->post_processor)
+		{
+			MHD_destroy_post_processor(con_info->post_processor);
+			n_clients_uploading--;
+		}
 		if(con_info->ans_str) free(con_info->ans_str);
+		if(con_info->file)    fclose(con_info->file);
 	}
 	free(con_info);
 	*con_cls = NULL;
@@ -205,9 +264,13 @@ static int answer_to_connection(
 
 	if(NULL == *con_cls)
 	{
+		if (n_clients_uploading >= MAXCLIENTS)
+			return send_page(connection, busy_str, MHD_HTTP_SERVICE_UNAVAILABLE);
+
 		conn_info_t* con_info = malloc(sizeof(conn_info_t));
 		if (NULL == con_info) return MHD_NO;
 		con_info->ans_str = NULL;
+		con_info->file = 0;
 		// If new request is POST, postprocessor created now
 		if (0==strcmp(method, "POST"))
 		{
@@ -218,17 +281,22 @@ static int answer_to_connection(
 				free(con_info);
 				return MHD_NO;
 			}
+			n_clients_uploading++; // Have this specific to the filepost action
+
 			con_info->conn_type = HTTP_POST;
+			con_info->status_code = MHD_HTTP_OK;
+			con_info->status_str  = file_complete_str;
 		}
-		else con_info->conn_type = HTTP_GET;
+		else con_info->conn_type = HTTP_GET; // FIXME: is this right?
 		*con_cls = (void*) con_info;
 		return MHD_YES;
 	}
 
 	if ( 0 == strcmp(method, "GET"))
 	{
-		return handle_get(cls, connection, url, method, version, 
-				upload_data, upload_data_size, con_cls);
+		char buf[1024];
+		sprintf(buf, ask_file_fmt, n_clients_uploading);
+		return send_page(connection, buf, MHD_HTTP_OK);
 	}
 	if ( 0 == strcmp(method, "POST"))
 	{
@@ -240,40 +308,10 @@ static int answer_to_connection(
 			*upload_data_size = 0;
 			return MHD_YES;
 		}
-		else if (NULL != con_info->ans_str)
-		{
-			struct MHD_Response *response = MHD_create_response_from_buffer(
-				   	strlen(con_info->ans_str), (void*)(con_info->ans_str)
-					, MHD_RESPMEM_PERSISTENT);
-			int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-			MHD_destroy_response(response);
-			return ret;
-		}
+		else
+		return send_page(connection, con_info->status_str, con_info->status_code);
 	}
-	size_t pagelen = strlen(err_405_fmt)+10;
-	char * page = (char*) malloc(pagelen);
-	if(NULL == page)
-	{
-		syslog(LOG_WARNING,
-				"Failed to malloc %lu bytes of memory for 405 error page"
-				, pagelen);
-		struct MHD_Response *response = MHD_create_response_from_buffer(
-				strlen(gen_500_str), (void*) gen_500_str
-				, MHD_RESPMEM_PERSISTENT);
-		int ret = MHD_queue_response(
-				connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
-		MHD_destroy_response(response);
-		return ret;
-	} 
-	else
-	{
-		snprintf(page, pagelen, err_405_fmt, method);
-		struct MHD_Response *response = MHD_create_response_from_buffer(
-				pagelen, page, MHD_RESPMEM_MUST_FREE);
-		int ret = MHD_queue_response(connection, MHD_HTTP_METHOD_NOT_ALLOWED, response);
-		MHD_destroy_response(response);
-		return ret;
-	}
+	return send_page(connection, gen_500_str, MHD_HTTP_BAD_REQUEST);
 }
 
 static int on_client_connect(void *cls, const struct sockaddr *addr, socklen_t addrlen)
