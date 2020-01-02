@@ -23,14 +23,28 @@ int main(int argc, char const *argv[])
 		fprintf(stderr, "Usage: %s config-file\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
-	CONF_KV_T* config = read_config(argv[1]);
+	const CONF_KV_T* config = read_config(argv[1]);
+	long l;
 	for(CONF_KV_T* kv_tmp = config; INI_KEY_INVALID_KEY != kv_tmp->key; kv_tmp++)
 	{
-		printf("CONFIG: %s=%s\n", ini_keys_str[kv_tmp->key], kv_tmp->value);
+		printf("CONFIG: %s=", ini_keys_str[kv_tmp->key]);
+		switch(kv_tmp->key)
+		{
+			case INI_KEY_PORT:
+				if(0 >= (l = config_lookup_key_long(config, kv_tmp->key)))
+					break;
+				printf("%ld", l);
+				break;
+			default:
+				printf("%s", kv_tmp->value);
+				break;
+		}
+		printf("\n");
 	}
-	free(config);
 
-	//server_init(PORT);
+	server_init(config);
+	
+	free(config);
 
 	closelog();
 	return EXIT_SUCCESS;

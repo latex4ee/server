@@ -9,8 +9,39 @@
 #define __CONFIG_C__
 #include "config.h"
 
+const char * config_lookup_key_str(const CONF_KV_T* config, const INI_KEY_T key)
+{
+	for(CONF_KV_T* tc = config; INI_KEY_INVALID_KEY != tc->key; tc++)
+	{
+		if(key == tc->key)
+		{
+			return tc->value;
+		}
+	}
+	return NULL;
+}
+const long config_lookup_key_long(const CONF_KV_T* config, const INI_KEY_T key)
+{
+	const char * value = config_lookup_key_str(config, key);
+	char * finpos;
+	long ret;
+	if(NULL == value)
+	{
+		fprintf(stderr, "Key %s not found in configuration.\n", ini_keys_str[key]);
+		return -1;
+	}
+	else
+	{
+		ret = strtol(value, &finpos, 10);
+		if( 0 == ret )
+			fprintf(stderr, "%s is not a valid value for key %s.\n"
+					, value, ini_keys_str[key]);
+		return ret;
+	}
+}
+
 /* returns list of configuration kv pairs terminated by an entry with key<-INVALID_KEY */
-CONF_KV_T* read_config(const char * filepath)
+const CONF_KV_T* read_config(const char * filepath)
 {
 	CONF_KV_T* conf = malloc(sizeof(CONF_KV_T)*(INI_KEY_N_KEYS + 1)); 
 	if(NULL == conf)

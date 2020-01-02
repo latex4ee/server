@@ -8,13 +8,12 @@
 
 #include <microhttpd.h>
 
+#include "config.h"
 #include "get.h"
 
 // Improve these
 static const char * gen_500_str = 
-	"<html><body>An internal server error has occurred!</body></html>";
-const char * WWW_ROOT = "./mock/";
-const int WWW_ROOT_LEN = 7; 
+"<html><body>An internal server error has occurred!</body></html>";
 
 typedef enum MIMETYPE {
 	MIMETYPE_NONE  = 0x00,
@@ -50,17 +49,25 @@ int handle_get(
 	struct MHD_Response *response;
 	int fd, ret = 0;
 	struct stat sbuf;
+	const char * www_root = config_lookup_key_str(cls->config, INI_KEY_ROOT);
+	if(NULL == www_root)
+	{
+		syslog(LOG_ERR, "Please specify a www root from which to serve files. Exiting...");
+		exit(EXIT_FAILURE);
+	}
+	const size_t www_root_len = strlen(www_root);
 
 	// Strip url of leading / if it exists
 	const char * tmp_url = '/' == *url ? url + 1 : url;
 	int urllen = strlen(tmp_url);
-	char * file_path = (char *) malloc(urllen+WWW_ROOT_LEN+1);
-	strncpy(file_path, WWW_ROOT, WWW_ROOT_LEN);
-	strncpy(file_path+WWW_ROOT_LEN, tmp_url, urllen);
+	char * file_path = (char *) malloc(urllen+www_root_len+1);
+	strncpy(file_path, www_root, www_root_len);
+	strncpy(file_path+www_root_len, tmp_url, urllen);
 	printf("Attempting to serve filepath %s at offset %s (full path: %s)\n",
-			tmp_url, WWW_ROOT, file_path);
+			tmp_url, www_root, file_path);
 	if ((-1==(fd=open(file_path, O_RDONLY))) || (0 != fstat(fd, &sbuf)))
 	{
+		free(file_path);
 		// Error accessing file
 		if ( -1 != fd) close(fd);
 		response = MHD_create_response_from_buffer(
@@ -80,7 +87,7 @@ int handle_get(
 		{
 			if (buffer) free(buffer);
 			response = MHD_create_response_from_buffer(
-				   	strlen(gen_500_str), (void*)gen_500_str, MHD_RESPMEM_PERSISTENT);
+					strlen(gen_500_str), (void*)gen_500_str, MHD_RESPMEM_PERSISTENT);
 			if (response)
 			{
 				ret = MHD_queue_response (
@@ -102,6 +109,7 @@ int handle_get(
 				8, file_path, nread);
 		mimetype = MIMETYPE_HTML;
 	}
+	free(file_path);
 	for (int i = 0; MIMETYPE_NONE != FILE_SIGS[i].type ; i++)
 	{
 		int j = 0;

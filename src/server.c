@@ -15,6 +15,7 @@
 
 #include <microhttpd.h>
 
+#include "config.h"
 #include "get.h"
 #include "post.h"
 #include "server.h"
@@ -104,23 +105,17 @@ static int answer_to_connection(
 	printf("New %s request for %s using %s\n", method, url, version);
 	//MHD_get_connection_values( connection, MHD_HEADER_KIND, &print_out_key, NULL);
 
-	if ( 0 == strcmp(method, "GET"))
-	{
-		/*
-		char buf[1024];
-		sprintf(buf, ask_file_fmt, n_clients_uploading);
-		return send_page(connection, buf, MHD_HTTP_OK);
-		*/
-		return handle_get((conn_info_t*)cls, connection, url, *con_cls);
-	}
 	if(NULL == *con_cls)
 	{
+		printf("NULL CON_CLS\n");
 		if (n_clients_uploading >= MAXCLIENTS)
 			return send_page(connection, busy_str, MHD_HTTP_SERVICE_UNAVAILABLE);
 
 		conn_info_t* con_info = malloc(sizeof(conn_info_t));
 		if (NULL == con_info) return MHD_NO;
 		con_info->file = 0;
+		con_info->status_code = MHD_HTTP_OK;
+		con_info->status_str  = file_complete_str;
 		// If new request is POST, postprocessor created now
 		if (0==strcmp(method, "POST"))
 		{
@@ -137,12 +132,20 @@ static int answer_to_connection(
 			con_info->status_code = MHD_HTTP_OK;
 			con_info->status_str  = file_complete_str;
 		}
-		else con_info->conn_type = HTTP_GET; // FIXME: is this right?
+		else if (0 == strcmp(method, "GET"))
+		{
+			con_info->conn_type = HTTP_GET; // FIXME: is this right?
+		}
 		*con_cls = (void*) con_info;
 		return MHD_YES;
 	}
+	printf("NONNULL CON_CLS\n");
 
-	if ( 0 == strcmp(method, "POST"))
+	if ( 0 == strcmp(method, "GET"))
+	{
+		return handle_get((conn_info_t*)cls, connection, url, *con_cls);
+	}
+	else if ( 0 == strcmp(method, "POST"))
 	{
 		conn_info_t* con_info = *con_cls;
 		if(*upload_data_size != 0)
@@ -188,20 +191,26 @@ static int on_client_connect(void *cls, const struct sockaddr *addr, socklen_t a
 }
 
 
-int server_init(uint16_t port)
+int server_init(const CONF_KV_T* config)
 {
 	struct MHD_Daemon *daemon;
+	long port = config_lookup_key_long(config, INI_KEY_PORT);
+	if (0 >= port)
+	{
+		syslog(LOG_INFO, "A port value of %d is not valid. Exiting latex4ee server...");
+		exit(EXIT_FAILURE);
+	}
 	daemon = MHD_start_daemon(
 			MHD_USE_INTERNAL_POLLING_THREAD 
 			, port
 			, &on_client_connect, NULL
-			, &answer_to_connection, NULL
+			, &answer_to_connection, config
 			, MHD_OPTION_NOTIFY_COMPLETED, &request_completed, NULL
 			, MHD_OPTION_END);
 	if (NULL == daemon)
 	{
 		syslog(LOG_ERR, "MHD daemon failed to start. Exiting latex4ee server...");
-		return EXIT_FAILURE;
+		exit(EXIT_FAILURE);
 	}
 	getchar();
 	MHD_stop_daemon(daemon);

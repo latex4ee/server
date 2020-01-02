@@ -20,7 +20,7 @@ typedef struct conf_kv_t{
 const int CONFIG_KEY_MAXLEN = 128;
 const int CONFIG_VAL_MAXLEN = 128;
 
-const char * ini_keys_str[] = {
+const char * ini_keys_str[INI_KEY_N_KEYS] = {
 	"HOST",
 	"PORT",
 	"ROOT"
@@ -36,6 +36,8 @@ CONF_KV_T default_config[] = [ {8080,
 extern const char * ini_keys_str[INI_KEY_N_KEYS];
 #endif
 
-CONF_KV_T* read_config(const char * filepath);
+const CONF_KV_T* read_config(const char * filepath);
+const char * config_lookup_key_str(const CONF_KV_T* config, const INI_KEY_T key);
+const long config_lookup_key_long(const CONF_KV_T* config, const INI_KEY_T key);
 
 #endif
