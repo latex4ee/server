@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,7 +26,7 @@ CONF_KV_T* read_config(const char * filepath)
 		syslog(LOG_WARNING, 
 				"Failed to open configuration file at %s. Using compile-time defaults specified in config.h",
 				filepath);
-		// FIXME
+		// FIXME add defaults in config.h
 	}
 
 	int type;
@@ -34,10 +35,14 @@ CONF_KV_T* read_config(const char * filepath)
 	do {
 		char key[CONFIG_KEY_MAXLEN], value[CONFIG_VAL_MAXLEN];
 		type = parse_ini_file(f, key, sizeof(key), value, sizeof(value));
+		char * tmpk = key;
+		for(;0 != *tmpk; tmpk++)
+			*tmpk = toupper(*tmpk);
 		switch(type){
 			case INI_SECTION:
 				break;
 			case INI_VALUE:
+				ini_key = INI_KEY_INVALID_KEY;
 				for(int i = 0; i < INI_KEY_N_KEYS; i++)
 				{
 					if(0 == strcmp(ini_keys_str[i],key))
@@ -54,13 +59,12 @@ CONF_KV_T* read_config(const char * filepath)
 							exit(EXIT_FAILURE);
 						}
 						conf_tmp++;
-						printf("Received k=v pair %s=%s\n", key, value);
 						break;
 					}
 				}
 				if(INI_KEY_INVALID_KEY==ini_key)
 				{
-					syslog(LOG_INFO, "Unrecognised key %s with value %s in config file %s",
+					fprintf(stderr, "Unrecognised key %s with value %s in config file %s\n",
 							key, value, filepath);
 				}
 				break;
