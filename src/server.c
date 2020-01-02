@@ -51,8 +51,6 @@ static const char * ask_file_fmt =
 </body>\
 </html>";
 static const size_t MAXCLIENTS = 2;
-static const size_t MAXNAMESIZE = 20;
-static const size_t MAXANSWERSIZE = 200;
 static const size_t POSTBUFFERSIZE = 1024;
 
 static unsigned int n_clients_uploading = 0;

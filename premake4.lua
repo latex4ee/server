@@ -15,10 +15,10 @@ solution "TeX_Server"
 		kind "ConsoleApp"
 		language "C"
 		files { "src/**.h", "src/**.c" }
-		includedirs { "./include" , "/usr/include" }
+		includedirs { "./include" , "/usr/include" , "ini_parser"}
 		libdirs { "./lib" , "/usr/lib"}
-		links { "microhttpd" }
-		buildoptions {"--std=c11", "-Wall"}
+		links { "microhttpd" , "ini_parser" }
+		buildoptions {"--std=gnu11", "-Wall"}
 
 		configuration "debug"
 			defines { "DEBUG" }
@@ -27,3 +27,8 @@ solution "TeX_Server"
 		configuration "release"
 			defines { "RELEASE" }
 			flags { "Optimize" }
+	
+	project "ini_parser"
+		kind "StaticLib"
+		language "C"
+		files { "ini_parser/*.c", "ini_parser/*.h"}

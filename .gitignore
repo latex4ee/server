@@ -6,3 +6,4 @@ bin/*
 make.*
 Makefile
 *.vim
+.gdb_history
