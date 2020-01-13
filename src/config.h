@@ -13,7 +13,7 @@ typedef enum ini_keys {
 
 typedef struct conf_kv_t{
 	INI_KEY_T key;
-	char * value;
+	const char * value;
 } CONF_KV_T;
 
 #ifdef __CONFIG_C__
@@ -36,7 +36,7 @@ CONF_KV_T default_config[] = [ {8080,
 extern const char * ini_keys_str[INI_KEY_N_KEYS];
 #endif
 
-const CONF_KV_T* read_config(const char * filepath);
+CONF_KV_T* read_config(const char * filepath);
 const char * config_lookup_key_str(const CONF_KV_T* config, const INI_KEY_T key);
 const long config_lookup_key_long(const CONF_KV_T* config, const INI_KEY_T key);
 

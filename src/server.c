@@ -191,13 +191,14 @@ static int on_client_connect(void *cls, const struct sockaddr *addr, socklen_t a
 }
 
 
-int server_init(const CONF_KV_T* config)
+int server_init(CONF_KV_T* config)
 {
 	struct MHD_Daemon *daemon;
 	long port = config_lookup_key_long(config, INI_KEY_PORT);
 	if (0 >= port)
 	{
-		syslog(LOG_INFO, "A port value of %d is not valid. Exiting latex4ee server...");
+		syslog(LOG_INFO, "A port value of %ld is not valid. Exiting latex4ee server...",
+				port);
 		exit(EXIT_FAILURE);
 	}
 	daemon = MHD_start_daemon(

@@ -11,7 +11,7 @@
 
 const char * config_lookup_key_str(const CONF_KV_T* config, const INI_KEY_T key)
 {
-	for(CONF_KV_T* tc = config; INI_KEY_INVALID_KEY != tc->key; tc++)
+	for(const CONF_KV_T* tc = config; INI_KEY_INVALID_KEY != tc->key; tc++)
 	{
 		if(key == tc->key)
 		{
@@ -41,7 +41,7 @@ const long config_lookup_key_long(const CONF_KV_T* config, const INI_KEY_T key)
 }
 
 /* returns list of configuration kv pairs terminated by an entry with key<-INVALID_KEY */
-const CONF_KV_T* read_config(const char * filepath)
+CONF_KV_T* read_config(const char * filepath)
 {
 	CONF_KV_T* conf = malloc(sizeof(CONF_KV_T)*(INI_KEY_N_KEYS + 1)); 
 	if(NULL == conf)

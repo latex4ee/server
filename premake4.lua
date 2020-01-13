@@ -32,3 +32,4 @@ solution "TeX_Server"
 		kind "StaticLib"
 		language "C"
 		files { "ini_parser/*.c", "ini_parser/*.h"}
+		buildoptions {"--std=gnu11", "-Wno-int-conversion"}

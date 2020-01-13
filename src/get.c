@@ -52,14 +52,16 @@ int handle_get(
 	struct stat sbuf;
 	if (NULL == cls) 
 	{
-		syslog(stderr, "%s:%d:CLS pointer is null ∴ no config list. Exiting...\n",
+		syslog(LOG_ERR, "%s:%d:CLS pointer is null ∴ no config list. Exiting...\n",
 				__FILE__, __LINE__);
 		exit(EXIT_FAILURE);
 	}
 	const char * www_root = config_lookup_key_str(cls->config, INI_KEY_ROOT);
 	if(NULL == www_root)
 	{
-		syslog(LOG_ERR, "Please specify a www root from which to serve files. Exiting...");
+		syslog(LOG_ERR, "%s:%d:Failed to retrieve a value for %s.\
+			   	You may have failed to specify a www root from which to serve files. Exiting..."
+				, __FILE__, __LINE__, ini_keys_str[INI_KEY_ROOT]);
 		exit(EXIT_FAILURE);
 	}
 	const size_t www_root_len = strlen(www_root);
@@ -67,13 +69,34 @@ int handle_get(
 	// Strip url of leading / if it exists
 	const char * tmp_url = '/' == *url ? url + 1 : url;
 	int urllen = strlen(tmp_url);
-	char * file_path = (char *) malloc((char)(urllen+www_root_len+1));
+
+	char * file_path;
+	file_path = (char *) malloc(sizeof(char)*(urllen+www_root_len+1));
 	strncpy(file_path, www_root, www_root_len);
-	strncpy(file_path+www_root_len, tmp_url, urllen);
-	file_path[urllen+www_root_len] = '\0';
 	
-	printf("Attempting to serve filepath %s at offset %s (full path: %s)\n",
-			tmp_url, www_root, file_path);
+   	// If no page requested, serve default page
+	if ('\0' == *tmp_url)
+	{
+		urllen = strlen(default_index);
+		file_path = (char *) realloc(file_path, sizeof(char)*(urllen+www_root_len+1));
+		if(!file_path)
+		{
+			syslog(LOG_ERR, "%s:%d:Failed to reallocate memory for default index's filepath. Exiting...",
+					__FILE__, __LINE__);
+			exit(EXIT_FAILURE);
+		}
+		strncpy(file_path+www_root_len, default_index, urllen);
+	}
+	else
+	{
+		strncpy(file_path+www_root_len, tmp_url, urllen);
+	}
+	// To fix buffer overrun when printing string
+	file_path[urllen+www_root_len] = '\0';
+
+	// FINAL FILEPATH TO SERVE DETERMINED
+	printf("Attempting to serve url %s at offset %s (resolved path: %s)\n",
+			url, www_root, file_path);
 	if ((-1==(fd=open(file_path, O_RDONLY))) || (0 != fstat(fd, &sbuf)))
 	{
 		free(file_path);

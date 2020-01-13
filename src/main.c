@@ -23,9 +23,9 @@ int main(int argc, char const *argv[])
 		fprintf(stderr, "Usage: %s config-file\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
-	const CONF_KV_T* config = read_config(argv[1]);
+	CONF_KV_T* config = read_config(argv[1]);
 	long l;
-	for(CONF_KV_T* kv_tmp = config; INI_KEY_INVALID_KEY != kv_tmp->key; kv_tmp++)
+	for(const CONF_KV_T* kv_tmp = config; INI_KEY_INVALID_KEY != kv_tmp->key; kv_tmp++)
 	{
 		printf("CONFIG: %s=", ini_keys_str[kv_tmp->key]);
 		switch(kv_tmp->key)
