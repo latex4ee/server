@@ -4,10 +4,9 @@
 #include <stddef.h>
 #include <microhttpd.h>
 
+#include "config.h"
 #include "server.h"
 
-int handle_get(
-		conn_info_t* cls, struct MHD_Connection *connection, const char *url,
-		void **con_cls);
+int handle_get(CONF_KV_T* config, struct MHD_Connection *connection, const char *url);
 
 #endif

@@ -17,6 +17,13 @@ const char * config_lookup_key_str(const CONF_KV_T* config, const INI_KEY_T key)
 		{
 			return tc->value;
 		}
+#ifdef DEBUG
+		else
+		{
+			printf("KEY-VALUE pair (%s:%s) found while searching for KEY %s.\n",
+					ini_keys_str[tc->key], tc->value, ini_keys_str[key]);
+		}
+#endif
 	}
 	return NULL;
 }
@@ -95,7 +102,7 @@ CONF_KV_T* read_config(const char * filepath)
 				}
 				if(INI_KEY_INVALID_KEY==ini_key)
 				{
-					fprintf(stderr, "Unrecognised key %s with value %s in config file %s\n",
+					syslog(LOG_WARNING, "Unrecognised key %s with value %s in config file %s\n",
 							key, value, filepath);
 				}
 				break;

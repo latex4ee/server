@@ -98,7 +98,7 @@ static int print_out_key(void *cls, enum MHD_ValueKind kind, const char *key, co
 }
 
 static int answer_to_connection(
-		void* cls, struct MHD_Connection *connection, const char *url,
+		void* config, struct MHD_Connection *connection, const char *url,
 		const char* method, const char* version, const char * upload_data,
 		size_t *upload_data_size, void **con_cls)
 {
@@ -143,7 +143,7 @@ static int answer_to_connection(
 
 	if ( 0 == strcmp(method, "GET"))
 	{
-		return handle_get((conn_info_t*)cls, connection, url, *con_cls);
+		return handle_get(config, connection, url);
 	}
 	else if ( 0 == strcmp(method, "POST"))
 	{

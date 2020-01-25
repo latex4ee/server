@@ -42,21 +42,19 @@ const file_sig_mimet_t FILE_SIGS[] = {
 	{ MIMETYPE_NONE, {}, 0}
 };
 
-int handle_get(
-		conn_info_t* cls, struct MHD_Connection *connection, 
-		const char *url, void **con_cls)
+int handle_get(CONF_KV_T* config, struct MHD_Connection *connection, const char *url)
 {
 	unsigned char *buffer = NULL;
 	struct MHD_Response *response;
 	int fd, ret = 0;
 	struct stat sbuf;
-	if (NULL == cls) 
+	if (NULL == config) 
 	{
-		syslog(LOG_ERR, "%s:%d:CLS pointer is null ∴ no config list. Exiting...\n",
+		syslog(LOG_ERR, "%s:%d:config list pointer is NULL. Exiting...\n",
 				__FILE__, __LINE__);
 		exit(EXIT_FAILURE);
 	}
-	const char * www_root = config_lookup_key_str(cls->config, INI_KEY_ROOT);
+	const char * www_root = config_lookup_key_str(config, INI_KEY_ROOT);
 	if(NULL == www_root)
 	{
 		syslog(LOG_ERR, "%s:%d:Failed to retrieve a value for %s.\

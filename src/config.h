@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 typedef enum ini_keys {
-	INI_KEY_INVALID_KEY = -1,
-	INI_KEY_HOST = 0, /* Host for which server will answer queries */
+	INI_KEY_INVALID_KEY = 0,
+	INI_KEY_HOST = 1, /* Host for which server will answer queries */
 	INI_KEY_PORT,     /* Port on which server will listen */
 	INI_KEY_ROOT,     /* Root folder to serve web content */
 	INI_KEY_N_KEYS
@@ -21,6 +21,7 @@ const int CONFIG_KEY_MAXLEN = 128;
 const int CONFIG_VAL_MAXLEN = 128;
 
 const char * ini_keys_str[INI_KEY_N_KEYS] = {
+	"INVALID KEY",
 	"HOST",
 	"PORT",
 	"ROOT"
